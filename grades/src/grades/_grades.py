@@ -35,15 +35,6 @@ class Grader:
     Can be used for any bijective step function, Callable[[float], str].
     """
 
-    DEFAULT_MAP: Mapping[str, float] = {
-        "F": 59,
-        "D": 69,
-        "C": 79,
-        "B": 89,
-        "A": math.inf,
-    }
-    """Default grade map."""
-
     def __init__(
         self,
         grades: Sequence[str] = "FDCBA",
