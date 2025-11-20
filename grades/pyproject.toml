@@ -1,0 +1,28 @@
+[project]
+name = "grades"
+version = "0.1.0"
+description = "Egregiously over-engineered score to grade calculator"
+readme = "README.md"
+authors = [
+    { name = "Jeffrey Goldberg", email = "jeffrey@goldmark.org" }
+]
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+grades = "grades:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.1",
+]
+
+[tool.ruff]
+line-length = 79
+
+[tool.mypy]
+strict = true
