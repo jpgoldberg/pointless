@@ -1,0 +1,10 @@
+{
+    "folders": [
+        {
+            "path": "."
+        }
+    ],
+    "settings": {
+        "python.defaultInterpreterPath": "/Users/jeffrey/src/github.com/jpgoldberg/pointless/grades/.venv/bin/python"
+    }
+}
