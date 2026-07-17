@@ -1,0 +1,10 @@
+[project]
+name = "ssl-check"
+version = "0.1.0"
+description = "Retrieve site certificate information"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "cryptography>=49.0.0",
+    "idna>=3.18",
+]
