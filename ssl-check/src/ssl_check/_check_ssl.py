@@ -2,7 +2,6 @@
 # requires a recent enough python with idna support in socket
 # pyopenssl, cryptography and idna
 
-from datetime import timezone
 from datetime import datetime
 from dataclasses import dataclass
 from cryptography import x509
@@ -45,13 +44,16 @@ class Cert:
     def get_issuer(self) -> str | None:
         try:
             names = self._cert.issuer.get_attributes_for_oid(NameOID.COMMON_NAME)
-            return names[0].value
+            value = names[0].value
+            if value is not None:
+                value = str(value)
+            return value
         except x509.ExtensionNotFound:
             return None
 
     def is_valid_now(self) -> bool:
-        valid_from = self._cert.not_valid_after_utc()
-        valid_until = self._cert.not_valid_after_utc()
+        valid_from = self._cert.not_valid_after_utc
+        valid_until = self._cert.not_valid_after_utc
         now = datetime.now()
 
         # all include timezone, so comparison will work
@@ -60,12 +62,18 @@ class Cert:
 
 @dataclass
 class HostInfo:
-    peername: str
     hostname: str
-    cert: Cert
+    peername: str | None
+    cert: Cert | None
+    error: None | Exception = None
 
     def basic_info(self) -> str:
-        hostname = self.hostname
+        s = f"Certificate summary for {self.hostname}:"
+
+        if self.cert is None:
+            s += f"\n\t Failed to fetch certificate: {self.error}"
+            return s
+
         peer_name = self.peername
         common_name = self.cert.get_common_name()
         san = self.cert.get_alt_names()
@@ -73,7 +81,8 @@ class HostInfo:
         not_before = self.cert.cert.not_valid_before_utc.isoformat()
         not_after = self.cert.cert.not_valid_after_utc.isoformat()
 
-        s = f"""» {hostname} « … {peer_name}
+        s += f""" 
+        \tPeer name: {peer_name}
         \tcommonName: {common_name}
         \tSAN: {san}
         \tissuer: {issuer}
@@ -82,30 +91,37 @@ class HostInfo:
         """
         return s
 
+
 class CertChecker:
     def __init__(self) -> None:
         self._ctx = self.set_context()
 
     def set_context(self) -> ssl.SSLContext:
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+
+        # We want to get certificate information even for
+        # expired or wrong names
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
+
         return ctx
 
     def get_certificate(self, hostname: str, port: int) -> HostInfo:
-        hostname_idna = idna.encode(hostname)
-
-        with socket.create_connection((hostname_idna, port)) as sock:
-            with self._ctx.wrap_socket(sock, server_hostname=hostname_idna) as sock_ssl:
-                # sock_ssl.set_connect_state()
-                # sock_ssl.set_tlsext_host_name(hostname_idna)
-                sock_ssl.do_handshake()
-                der_cert = sock_ssl.getpeercert(binary_form=True)
-                peername = sock_ssl.getpeername()
-                sock_ssl.close()
-                sock.close()
-                cert = Cert(der_cert)
+        try:
+            hostname_idna = idna.encode(hostname)
+            with socket.create_connection((hostname_idna, port)) as sock:
+                with self._ctx.wrap_socket(
+                    sock, server_hostname=hostname_idna
+                ) as sock_ssl:
+                    sock_ssl.do_handshake()
+                    der_cert = sock_ssl.getpeercert(binary_form=True)
+                    if der_cert is None:
+                        raise Exception("No cert from peer")
+                    peername = sock_ssl.getpeername()
+                    sock_ssl.close()
+                    sock.close()
+                    cert = Cert(der_cert)
+        except Exception as e:
+            return HostInfo(hostname=hostname, error=e, cert=None, peername=None)
 
         return HostInfo(cert=cert, peername=peername, hostname=hostname)
-
-
